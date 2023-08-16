@@ -8,8 +8,7 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
       matrix:
@@ -74,15 +73,18 @@ jobs:
     - name: Run RSpec
       run: |
         bundle exec rspec
-    - name: Build .gem file
-      run: |
-        gem build activerecord-oracle_enhanced-adapter.gemspec
-    - name: Install .gem file
-      run: |
-        gem install activerecord-oracle_enhanced-adapter-*.gem
     - name: Run bug report templates
       run: |
         cd guides/bug_report_templates
         ln -s ../../lib lib
         ruby active_record_gem.rb
         ruby active_record_gem_spec.rb
+    - name: Uninstall activerecord-oracle_enhanced-adapter gem
+      run: |
+        gem uninstall activerecord-oracle_enhanced-adapter
+    - name: Build activerecord-oracle_enhanced-adapter .gem file
+      run: |
+        gem build activerecord-oracle_enhanced-adapter.gemspec
+    - name: Install activerecord-oracle_enhanced-adapter .gem file
+      run: |
+        gem install activerecord-oracle_enhanced-adapter-*.gem
