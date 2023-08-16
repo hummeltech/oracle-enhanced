@@ -1,4 +1,4 @@
-name: test
+name: Test
 
 on:
   push:
@@ -9,35 +9,41 @@ on:
 jobs:
   build:
 
+    name: >-
+      Ruby (${{ matrix.ruby }}) |
+      Oracle XE (${{ matrix.oracle }})
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        # Rails 7.0 requires Ruby 2.7 or higeher.
-        # CI pending the following matrix until JRuby 9.4 that supports Ruby 2.7 will be released.
-        # https://github.com/jruby/jruby/issues/6464
-        # - jruby,
-        # - jruby-head
-        ruby: [
-          '3.2',
-          '3.1',
-          '3.0',
-          '2.7'
-        ]
+        oracle:
+          - 11.2.0.2
+          # Oracle Database XE version 18 causes test failures:
+          # TIMESTAMP WITH TIME ZONE
+          # - 18.4.0
+          - 21.3.0
+        ruby:
+          - 3.2
+          - 3.1
+          - '3.0'
+          - 2.7
+          - jruby
+          - truffleruby
     env:
-      ORACLE_HOME: /usr/lib/oracle/21/client64
+      DATABASE_HOST: localhost
+      DATABASE_NAME: ${{ matrix.oracle == '11.2.0.2' && 'XE' || 'XEPDB1' }}
+      DATABASE_PORT: 1521
+      DATABASE_SYS_PASSWORD: Oracle18
+      DATABASE_VERSION: ${{ matrix.oracle }}
       LD_LIBRARY_PATH: /usr/lib/oracle/21/client64/lib
       NLS_LANG: AMERICAN_AMERICA.AL32UTF8
+      ORACLE_HOME: /usr/lib/oracle/21/client64
       TNS_ADMIN: ./ci/network/admin
-      DATABASE_NAME: XEPDB1
       TZ: Europe/Riga
-      DATABASE_SYS_PASSWORD: Oracle18
-      DATABASE_HOST: localhost
-      DATABASE_PORT: 1521
 
     services:
       oracle:
-        image: gvenzl/oracle-xe:latest
+        image: gvenzl/oracle-xe:${{ matrix.oracle }}
         ports:
           - 1521:1521
         env:
@@ -49,27 +55,18 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
-      - name: Install required package
-        run: |
-          sudo apt-get install alien
-      - name: Download Oracle instant client
-        run: |
-          wget -q https://download.oracle.com/otn_software/linux/instantclient/2110000/oracle-instantclient-basic-21.10.0.0.0-1.x86_64.rpm
-          wget -q https://download.oracle.com/otn_software/linux/instantclient/2110000/oracle-instantclient-sqlplus-21.10.0.0.0-1.x86_64.rpm
-          wget -q https://download.oracle.com/otn_software/linux/instantclient/2110000/oracle-instantclient-devel-21.10.0.0.0-1.x86_64.rpm
-      - name: Install Oracle instant client
-        run: |
-          sudo alien -i oracle-instantclient-basic-21.10.0.0.0-1.x86_64.rpm
-          sudo alien -i oracle-instantclient-sqlplus-21.10.0.0.0-1.x86_64.rpm
-          sudo alien -i oracle-instantclient-devel-21.10.0.0.0-1.x86_64.rpm
+      - name: Download & Install Oracle Instant Client
+        uses: ./.github/actions/oracle-instant-client/download-and-install
       - name: Install JDBC Driver
         run: |
           wget -q https://download.oracle.com/otn-pub/otn_software/jdbc/211/ojdbc11.jar -O ./lib/ojdbc11.jar
+        if: "startsWith(matrix.ruby, 'jruby')"
       - name: Create database user
         run: |
           ./ci/setup_accounts.sh
@@ -83,5 +80,6 @@ jobs:
         if: "false"
         run: |
           cd guides/bug_report_templates
+          ln -s ../../lib lib
           ruby active_record_gem.rb
           ruby active_record_gem_spec.rb

@@ -1,0 +1,63 @@
+name: Build & Install Gem
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build-and-install-gem:
+
+    name: >-
+      Ruby (${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby:
+          - 3.2
+          - 3.1
+          - '3.0'
+          - 2.7
+          - jruby
+          - truffleruby
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Download & Install Oracle Instant Client
+        uses: ./.github/actions/oracle-instant-client/download-and-install
+      - name: Checkout rails/rails
+        uses: actions/checkout@v3
+        with:
+          path: rails
+          ref: 8551e64e2411811f26d210601abdba6e13d8798c
+          repository: rails/rails
+      - name: Build & Install `activesupport`
+        run: |
+          gem build activesupport.gemspec
+          gem install activesupport-*.gem
+        working-directory: rails/activesupport
+      - name: Build & Install `activemodel`
+        run: |
+          gem build activemodel.gemspec
+          gem install activemodel-*.gem
+        working-directory: rails/activemodel
+      - name: Build & Install `activerecord`
+        run: |
+          gem build activerecord.gemspec
+          gem install activerecord-*.gem
+        working-directory: rails/activerecord
+      - name: Install `ruby-oci8`
+        run: |
+          gem install ruby-oci8
+        if: "!startsWith(matrix.ruby, 'jruby')"
+      - name: Build & Install `activerecord-oracle_enhanced-adapter`
+        run: |
+          gem build activerecord-oracle_enhanced-adapter.gemspec
+          gem install activerecord-oracle_enhanced-adapter-*.gem

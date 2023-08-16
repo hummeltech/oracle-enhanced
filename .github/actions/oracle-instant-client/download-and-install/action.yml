@@ -1,0 +1,32 @@
+---
+inputs:
+  version:
+    default: 21.11.0.0.0
+  basic-release:
+    default: 1
+  devel-release:
+    default: 1
+  sqlplus-release:
+    default: 1
+
+runs:
+  using: composite
+  steps:
+    - name: Download & Install Oracle Instant Client
+      run: |
+        BASIC_FILENAME=oracle-instantclient-basic-${{ inputs.version }}-${{ inputs.basic-release }}.x86_64.rpm
+        DEVEL_FILENAME=oracle-instantclient-devel-${{ inputs.version }}-${{ inputs.devel-release }}.x86_64.rpm
+        SQLPLUS_FILENAME=oracle-instantclient-sqlplus-${{ inputs.version }}-${{ inputs.sqlplus-release }}.x86_64.rpm
+
+        VERSIONED_URL=$(printf "%s/%s" "https://download.oracle.com/otn_software/linux/instantclient" "$(echo '${{ inputs.version }}' | sed 's/\.//g')")
+
+        curl --remote-name-all --silent \
+          ${VERSIONED_URL}/${BASIC_FILENAME} \
+          ${VERSIONED_URL}/${DEVEL_FILENAME} \
+          ${VERSIONED_URL}/${SQLPLUS_FILENAME}
+        sudo apt-get --yes install alien
+        sudo alien --install \
+          ${BASIC_FILENAME} \
+          ${DEVEL_FILENAME} \
+          ${SQLPLUS_FILENAME}
+      shell: bash
